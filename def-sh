@@ -1,0 +1,5 @@
+#!/bin/bash
+DIR="$(dirname "${BASH_SOURCE[0]}")"
+WORD=$1
+URL="https://api.dictionaryapi.dev/api/v2/entries/en/$WORD"
+curl -s $URL | $DIR/def-parse.py
