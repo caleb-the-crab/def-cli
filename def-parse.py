@@ -21,7 +21,11 @@ STYLES = {
     }
 
 def load_json() -> str:
-    return json.load(sys.stdin)
+    try:
+        return json.load(sys.stdin)
+    except json.decoder.JSONDecodeError:
+        print("Unable to parse JSON")
+        quit()
 
 def extract_word_object(raw_data) -> str:
     try:
