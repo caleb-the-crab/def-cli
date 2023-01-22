@@ -67,7 +67,7 @@ def build_readout(data: dict, readout_buf="") -> str:
                 pass
             try:
                 if len(definition["antonyms"]) > 0:
-                    readout_buf += "   [{STYLES['antonyms']}]> Antonyms: [/]"
+                    readout_buf += f"   [{STYLES['antonym']}]> Antonyms: [/]"
                     for antonym in definition["antonyms"]:
                         readout_buf += f"[{STYLES['lowlight']}]{antonym}, [/]"
                     readout_buf = trim_end(readout_buf)
