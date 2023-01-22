@@ -1,84 +1,104 @@
 #!/bin/python
 # pipe the json string returned from https://api.dictionaryapi.dev
 # from stdin to a rich console print object and display
+#
+# I am aware that this is super messy
+# It will be refactored further when I get the motivation
 import sys
 import json
-from flatten_json import flatten
 from rich.console import Console
 from rich.panel import Panel
 from math import floor
-raw = json.load(sys.stdin)
-try:
-   #data = flatten(raw[0])
-   data = raw[0]
-except KeyError:
-    print("Word not found.")
-    quit()
 
-word = data["word"]
-phonetics = data["phonetics"]
-meanings = data["meanings"]
+STYLES = {
+    "highlight" : "yellow bold",
+    "standout"  : "white bold",
+    "normal"    : "white",
+    "lowlight"  : "#888888 italic",
+    "border"    : "yellow",
+    "synonym"   : "#88aa88",
+    "antonym"   : "#aa8888",
+    }
 
-readout = "\n"
+def load_json() -> str:
+    return json.load(sys.stdin)
 
-ipa = ""
-for d in phonetics:
+def extract_word_object(raw_data) -> str:
     try:
-        ipa += d["text"] + ", "
+        return raw_data[0]
     except KeyError:
-        pass
-ipa = ipa[:-2]
+        print("Word not found.")
+        quit()
 
-readout += f'[#888888 italic]Pronunciation: {ipa}[/]\n'
-for meaning in meanings:
-    readout += f'\n[bold]{word}[/] - [italic]{meaning["partOfSpeech"]}[/]\n'
-    definitions = meaning["definitions"]
-    synonyms = meaning["synonyms"]
-    antonyms = meaning["antonyms"]
-    for definition in definitions:
-        readout += f'[bold yellow] - [/]{definition["definition"]}\n'
-        try:
-            readout += f"[#888888 italic]   Ex.{definition['example']}[/]\n"
-        except KeyError:
-            pass
-        try:
-            if len(definition["synonyms"]) > 0:
-                readout += "   [#88aa88]> Synonyms: [/]"
-                for synonym in definition["synonyms"]:
-                    readout += f'[italic #888888]{synonym}, [/]'
-                readout = readout[:-5]
-                readout += "[/]\n"
-        except KeyError:
-            pass
-        try:
-            if len(definition["antonyms"])> 0:
-                readout += "   [#aa8888]> Antonyms: [/]"
-                for antonym in definition["antonyms"]:
-                    readout += f'[italic #888888]{antonym}, [/]'
-                readout = readout[:-5]
-                readout += "[/]\n"
-        except KeyError:
-            pass
+def trim_end(string: str, num=5, end="\n") -> str:
+    return string[:-num] + f"[/]{end}"
 
-    if len(synonyms) > 0:
-        readout += "\n [#88aa88]> Synonyms: [/]"
-        for synonym in synonyms:
-            readout += f'[italic #888888]{synonym}, [/]'
-        readout = readout[:-5]
-        readout += "[/]\n"
-    if len(antonyms) > 0:
-        readout += "\n [#aa8888]> Antonyms: [/]"
-        for antonym in antonyms:
-            readout += f'[italic #888888]{antonym}, [/]'
-        readout = readout[:-5]
-        readout += "[/]\n"
+def build_ipa(ipa_obj: dict, ipa_buf=f"\n[{STYLES['lowlight']}]Pronunciation: [/]") -> str:
+    if len(ipa_obj) > 0: 
+        for p in ipa_obj:
+            try:
+                ipa_buf += f"[{STYLES['lowlight']}]{p['text']}, [/]"
+            except KeyError:
+                pass
+        return trim_end(ipa_buf)
+    else:
+        return ""
 
-console = Console()
-panel = Panel(
-            readout,
-            title=f"[yellow]Definition for [bold]{word}[/]",
-            title_align="left",
-            width=int(floor(console.size.width/2)),
-            )
+def build_readout(data: dict, readout_buf="") -> str:
+    readout_buf += build_ipa(data["phonetics"])
+    for meaning in data["meanings"]:
+        readout_buf += f"\n[{STYLES['standout']}]{data['word']}[/] - [{STYLES['lowlight']}]{meaning['partOfSpeech']}[/]\n"
+        definitions = meaning["definitions"]
+        synonyms = meaning["synonyms"]
+        antonyms = meaning["antonyms"]
+        for definition in definitions:
+            readout_buf += f"[{STYLES['highlight']}] - [/][{STYLES['normal']}]{definition['definition']}[/]\n"
+            try:
+                readout_buf += f"[{STYLES['lowlight']}]   Ex. {definition['example']}[/]\n"
+            except KeyError:
+                pass
+            try:
+                if len(definition["synonyms"]) > 0:
+                    readout_buf += f"   [{STYLES['synonyms']}]> Synonyms: [/]"
+                    for synonym in definition["synonyms"]:
+                        readout_buf += f"[{STYLES['lowlight']}]{synonym}, [/]"
+                    readout_buf = trim_end(readout_buf)
+            except KeyError:
+                pass
+            try:
+                if len(definition["antonyms"]) > 0:
+                    readout_buf += "   [{STYLES['antonyms']}]> Antonyms: [/]"
+                    for antonym in definition["antonyms"]:
+                        readout_buf += f"[{STYLES['lowlight']}]{antonym}, [/]"
+                    readout_buf = trim_end(readout_buf)
+            except KeyError:
+                pass
 
-console.print(panel)
+        if len(synonyms) > 0:
+            readout_buf += f"\n [{STYLES['synonym']}]> Synonyms: [/]"
+            for synonym in synonyms:
+                readout_buf += f"[{STYLES['lowlight']}]{synonym}, [/]"
+            readout_buf = trim_end(readout_buf)
+        if len(antonyms) > 0:
+            readout_buf += f"\n [{STYLES['antonym']}]> Antonyms: [/]"
+            for antonym in antonyms:
+                readout_buf += f"[{STYLES['lowlight']}]{antonym}, [/]"
+            readout_buf = trim_end(readout_buf)
+    return readout_buf
+
+def run():
+    raw = load_json()
+    data = extract_word_object(raw)
+    readout = build_readout(data)
+    console = Console()
+    panel = Panel(
+                readout,
+                title=f"[{STYLES['normal']}]Definition for [{STYLES['highlight']}]{data['word']}[/]",
+                title_align="left",
+                width=int(floor(console.size.width/2)),
+                )
+
+    console.print(panel)
+
+if __name__ == "__main__":
+    run()
